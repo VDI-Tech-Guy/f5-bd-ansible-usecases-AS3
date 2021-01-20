@@ -8,9 +8,56 @@
     pool_members: "{{ groups['web'] }}"
     F5_Admin_Port: "8443"
     F5_VIP_Name: Use-Case-3-VIP
+    do_uri: "https://github.com/F5Networks/f5-declarative-onboarding/releases"
 
 
   tasks:
+# Install Declaritive Onboarding
+    - name: Get latest AS3 RPM version
+      action: shell wget -O - {{do_uri}} | grep -E rpm | head -1 | cut -d "/" -f 7 | cut -d "=" -f 1 |  cut -d "\"" -f 1
+      register: do_output
+
+    - set_fact:
+       do_release: "{{do_output.stdout_lines[0]}}"
+
+    - name: Get latest DO RPM version
+      action: shell wget -O - {{do_uri}} | grep -E rpm | head -1 | cut -d "/" -f 6
+      register: do_output
+
+    - set_fact:
+       do_release_tag: "{{do_output.stdout_lines[0]}}"
+
+    - name: Grab DO RPM from github
+      get_url:
+       url: "{{do_uri}}/download/{{do_release_tag}}/{{do_release}}?raw=true"
+       dest: "~/"
+       validate_certs: false
+
+    - name: Set a fact named 'provider' with BIG-IP login information
+      set_fact:
+       provider:
+        server: "{{private_ip}}"
+        user: "{{ansible_user}}"
+        password: "{{ansible_ssh_pass}}"
+        server_port: 8443
+        validate_certs: no
+
+    - name: Grab the DO version from the home directory
+      shell: ls -Art ~/*.rpm | tail -n 1 | rev | cut -d/ -f 1 | rev
+      register: ls_output
+
+    - set_fact:
+       do_rpm: "{{ls_output.stdout}}"
+
+    - name: Install DO
+      bigip_iapplx_package:
+       package: "~/{{do_rpm}}"
+       provider: "{{provider}}"
+
+    - name: Pause for Install to complete
+      pause:
+        minutes: 1
+
     - name: GET ASM - Module Install Status
       uri:
         url: "https://{{ ansible_host }}:8443/mgmt/tm/sys/provision/asm"
@@ -39,6 +86,11 @@
       delegate_to: localhost
       when: installed_status.json.level != "nominal"
 
+    - name: Pause for install of ASM to complete
+      pause:
+        minutes: 2
+      when: installed_status.json.level != "nominal"
+      
     - name: PUSH AS3
       uri:
         url: "https://{{ ansible_host }}:8443/mgmt/shared/appsvcs/declare"

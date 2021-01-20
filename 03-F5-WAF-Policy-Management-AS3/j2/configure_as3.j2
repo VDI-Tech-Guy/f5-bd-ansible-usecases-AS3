@@ -13,13 +13,18 @@
 			"AS3-UseCase-3": {
 				"class": "Application",
 				"{{F5_VIP_Name}}": {
-					"class": "Service_TCP",
+					"class": "Service_HTTPS",
 					"virtualPort": 8082,
 					"virtualAddresses": [
 						"{{private_ip}}"
 					],
+					"profileHTTP": "basic", 
 					"pool": "{{ F5_VIP_Name }}_pool",
-          "serverTLS": {
+					"policyWAF": {
+           "use": "{{F5_VIP_Name}}-Policy"
+					},
+          "redirect80": false,
+					"serverTLS": {
               "bigip": "/Common/clientssl"
           }
 				},
@@ -38,7 +43,12 @@
                     {% endfor %}
             ]
 					}]
-				}
+				},
+			"{{F5_VIP_Name}}-Policy": {
+      "class": "WAF_Policy",
+      "url": "https://raw.githubusercontent.com/f5devcentral/FAS-ansible-workshop-101/master/3.3-as3-asm/Test_WAF_Policy.xml",
+      "ignoreChanges": true
+			}
 			}
 		}
 	}
