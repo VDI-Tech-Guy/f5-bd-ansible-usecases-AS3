@@ -57,6 +57,6 @@
        as3_rpm: "{{ls_output.stdout}}"
 
     - name: Install AS3
-      bigip_iapplx_package:
+      f5networks.f5_modules.bigip_iapplx_package:
        package: "~/{{as3_rpm}}"
        provider: "{{provider}}"
